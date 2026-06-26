@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>attestq — sample assessment</title>
+  <style>
+    :root { --blue:#0046AD; --green:#00A651; }
+    * { box-sizing: border-box; }
+    body { margin:0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+           color:#1c2330; background: linear-gradient(135deg, #eef4ff 0%, #eafaf1 100%); }
+    header { background: linear-gradient(135deg, var(--blue) 0%, var(--green) 100%);
+             color:#fff; padding: 28px 32px; }
+    header h1 { margin:0; font-size: 1.6rem; }
+    header p { margin:6px 0 0; opacity:.92; }
+    main { max-width: 980px; margin: 0 auto; padding: 24px 20px 60px; }
+    .card { background:#fff; border-radius:14px; padding:20px 22px; margin:18px 0;
+            box-shadow: 0 6px 22px rgba(20,40,90,.08); }
+    .banner { border-left:5px solid #f0a500; background:#fff8e6; }
+    .banner.live { border-left-color: var(--green); background:#eafaf1; }
+    .kpis { display:flex; gap:14px; flex-wrap:wrap; }
+    .kpi { flex:1; min-width:150px; background: linear-gradient(135deg,#f4f8ff,#eafaf1);
+           border-radius:12px; padding:14px 16px; }
+    .kpi .n { font-size:1.8rem; font-weight:700; color:var(--blue); }
+    .kpi .l { font-size:.8rem; text-transform:uppercase; letter-spacing:.04em; color:#667; }
+    .btn { display:inline-block; border:0; cursor:pointer; color:#fff; font-weight:600;
+           padding:12px 22px; border-radius:10px; font-size:1rem;
+           background: linear-gradient(135deg, var(--blue), var(--green)); }
+    .pill { display:inline-block; padding:3px 12px; border-radius:999px; font-size:.82rem; font-weight:700; }
+    .pill.met { background:#e3f7ec; color:#0a7a40; }
+    .pill.not { background:#fde8e8; color:#b3261e; }
+    .pill.na  { background:#eceff4; color:#566; }
+    .pill.ins { background:#fff3da; color:#9a6700; }
+    .q { border-top:1px solid #eef1f6; padding:16px 0; }
+    .q:first-child { border-top:0; }
+    .q h3 { margin:0 0 4px; font-size:1rem; }
+    .q .prompt { color:#445; margin:0 0 8px; }
+    .q .summary { background:#f7f9fc; border-radius:8px; padding:10px 12px; margin:8px 0; white-space:pre-wrap; }
+    .cite { font-size:.85rem; color:#556; }
+    .cite b { color:var(--blue); }
+    .domain { margin-top:22px; color:var(--blue); border-bottom:2px solid #e6ecf6; padding-bottom:4px; }
+    .doclist li { margin:4px 0; }
+    code { background:#eef2f9; padding:1px 6px; border-radius:5px; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>🛡️ attestq — Vendor Security Due-Diligence</h1>
+    <p>Answer a questionnaire from a vendor's evidence — grounded, cited, and honest about gaps.</p>
+  </header>
+  <main>
+    {% if mode %}
+      <div class="card banner {{ 'live' if mode == 'live' else '' }}">
+        {% if mode == 'live' %}
+          ✅ <b>Live mode</b> — determinations were reasoned by your configured LLM.
+        {% else %}
+          ⚠️ <b>Demo mode</b> — no LLM configured, so determinations are placeholders.
+          Retrieval, citations, and the insufficient-evidence gate are real. Set
+          <code>OPENAI_API_KEY</code> or <code>PROVIDER=ollama</code> for real verdicts.
+        {% endif %}
+      </div>
+    {% endif %}
+
+    {% if not answers %}
+      <div class="card">
+        <h2 style="margin-top:0">Sample vendor: Helios Data Systems <span class="pill na">fictional</span></h2>
+        <p>{{ documents|length }} evidence documents · {{ questionnaire.questions|length }} controls.
+           A few controls (secure SDLC, log retention, fourth-party management) have
+           <em>no</em> supporting evidence on purpose — watch them come back as
+           <span class="pill ins">insufficient evidence</span>.</p>
+        <ul class="doclist">
+          {% for d in documents %}<li>📄 {{ d.source }}</li>{% endfor %}
+        </ul>
+        <form method="post" action="/run"><button class="btn" type="submit">▶ Run assessment</button></form>
+      </div>
+    {% else %}
+      <div class="card">
+        <div class="kpis">
+          <div class="kpi"><div class="n">{{ summary.total }}</div><div class="l">Controls</div></div>
+          {% for det, count in summary.by_determination.items() %}
+            <div class="kpi"><div class="n">{{ count }}</div><div class="l">{{ det }}</div></div>
+          {% endfor %}
+          <div class="kpi"><div class="n">{{ '%.2f'|format(summary.average_confidence) }}</div><div class="l">Avg confidence</div></div>
+        </div>
+        <form method="post" action="/run" style="margin-top:16px"><button class="btn" type="submit">↻ Re-run</button></form>
+      </div>
+
+      <div class="card">
+        {% set qmap = {} %}
+        {% for q in questionnaire.questions %}{% set _ = qmap.update({q.id: q}) %}{% endfor %}
+        {% set ns = namespace(domain=None) %}
+        {% for a in answers %}
+          {% set q = qmap[a.question_id] %}
+          {% if q.domain != ns.domain %}
+            {% set ns.domain = q.domain %}
+            <h3 class="domain">{{ q.domain }}</h3>
+          {% endif %}
+          <div class="q">
+            {% set d = a.determination|lower %}
+            <h3>{{ a.question_id }}
+              {% if a.insufficient_evidence %}<span class="pill ins">insufficient evidence</span>
+              {% elif 'not' in d %}<span class="pill not">{{ a.determination }}</span>
+              {% elif 'applicable' in d %}<span class="pill na">{{ a.determination }}</span>
+              {% else %}<span class="pill met">{{ a.determination }}</span>{% endif %}
+              <span class="cite">· conf {{ '%.2f'|format(a.confidence) }}</span>
+            </h3>
+            <p class="prompt">{{ q.prompt }}</p>
+            <div class="summary">{{ a.summary }}</div>
+            {% for c in a.citations %}
+              <div class="cite">↳ <b>{{ c.source }}</b> ({{ '%.2f'|format(c.score) }}): {{ c.snippet }}</div>
+            {% endfor %}
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </main>
+</body>
+</html>

@@ -13,10 +13,12 @@ actionable error. Install what you need:
 from .chroma import ChromaStore
 from .ollama import OllamaChat, OllamaEmbedder
 from .openai_chat import OpenAIChat
+from .openai_embed import OpenAIEmbedder
 from .rerank import CrossEncoderReranker
 
 __all__ = [
     "OpenAIChat",
+    "OpenAIEmbedder",
     "OllamaEmbedder",
     "OllamaChat",
     "ChromaStore",

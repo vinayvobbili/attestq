@@ -22,6 +22,7 @@ document loaders, rerankers) ship behind optional extras.
 """
 
 from .chunking import split_text
+from .embedders import HashEmbedder
 from .engine import Engine
 from .export import answers_to_dict, summarize, to_docx, to_json, to_markdown
 from .io import (
@@ -45,6 +46,7 @@ __all__ = [
     "Citation",
     "Hit",
     "InMemoryVectorStore",
+    "HashEmbedder",
     "VectorStore",
     "Reranker",
     "ChatFn",

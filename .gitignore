@@ -19,6 +19,11 @@ htmlcov/
 venv/
 env/
 
+# Generated reports from examples/CLI
+report.md
+report.docx
+report.json
+
 # Local data / scratch
 *.sqlite3
 *.db

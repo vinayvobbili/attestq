@@ -101,6 +101,47 @@ qn = Questionnaire(
 answers = engine.evaluate_all(qn, namespace="helios", on_answer=lambda a: print(a.question_id, a.determination))
 ```
 
+## Command line
+
+Installing attestq gives you an `attestq` command. Run the bundled sample, or
+point it at your own questionnaire and evidence:
+
+```bash
+# Run the bundled fictional sample assessment end-to-end
+attestq demo -o report.md
+
+# Evaluate your questionnaire against a folder of evidence
+attestq run -q questionnaire.yaml -e ./vendor-evidence -n acme -o report.docx
+
+# Pipe JSON to another tool
+attestq run -q q.json -e ./evidence --format json | jq .summary
+```
+
+Providers are resolved from flags or environment, so the same command works
+against OpenAI-compatible endpoints or a local Ollama:
+
+```bash
+export OPENAI_API_KEY=sk-...                 # uses OpenAI by default
+attestq demo
+
+attestq demo --provider ollama               # local, no key, nothing leaves the host
+attestq run -q q.yaml -e ./ev --provider openai --base-url https://my-gateway/v1
+```
+
+## Try it instantly (no setup)
+
+The built-in `HashEmbedder` needs no model and no service, so you can watch the
+retrieval pipeline and the confidence gate work the moment you install:
+
+```bash
+pip install attestq
+python examples/quickstart.py
+```
+
+See [`examples/`](examples/) for a full provider-wired demo
+(`helios_demo.py`) and a minimal web UI (`examples/web/`) that runs the sample
+assessment in your browser.
+
 ## How it works
 
 ```
@@ -135,9 +176,9 @@ Everything is swappable:
 
 ## Status
 
-Early but usable. Core kernel + in-memory store are here today; provider adapters,
-document loaders, and export renderers land as optional extras. Contributions and
-issues welcome.
+Usable today: the core kernel, in-memory + Chroma stores, OpenAI/Ollama
+adapters, a cross-encoder reranker, document loaders, JSON/Markdown/Word export,
+a CLI, and a web demo. Contributions and issues welcome.
 
 ## License
 

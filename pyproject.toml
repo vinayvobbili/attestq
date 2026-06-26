@@ -57,6 +57,9 @@ all = [
 ]
 dev = ["pytest>=7.0", "pytest-cov", "build", "twine", "ruff"]
 
+[project.scripts]
+attestq = "attestq.cli:main"
+
 [project.urls]
 Homepage = "https://github.com/vinayvobbili/attestq"
 Repository = "https://github.com/vinayvobbili/attestq"

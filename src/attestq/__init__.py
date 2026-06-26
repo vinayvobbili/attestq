@@ -36,7 +36,7 @@ from .prompts import build_eval_prompt, parse_response
 from .protocols import ChatFn, EmbedFn, Reranker, VectorStore
 from .store import InMemoryVectorStore, cosine_similarity
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 __all__ = [
     "Engine",

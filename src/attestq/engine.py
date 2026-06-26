@@ -44,6 +44,17 @@ class Engine:
         min_confidence: Retrieval-score gate in [0, 1]. When the best available
             evidence scores below this, the question is answered "insufficient
             evidence" WITHOUT calling the LLM (no hallucination on thin air).
+        gate_on: Which score the confidence gate uses — ``"retrieval"`` (default;
+            the best raw similarity score *before* reranking) or ``"rerank"`` (the
+            top score *after* reranking). Gate on ``"retrieval"`` when your
+            ``min_confidence`` is calibrated to the embedder's similarity scale and
+            the reranker only reorders for context selection; the two coincide when
+            no reranker is set.
+        insufficient_determination: Determination to use when the gate fires.
+            Defaults to the question's last choice, else "Insufficient Evidence".
+            Set this when a closed choice set's "negative" end is not the gate
+            outcome you want (e.g. "Not Met" rather than "Not Applicable").
+        insufficient_summary: Summary text used when the gate fires.
         chunk_size / chunk_overlap: Defaults for the built-in splitter.
         prompt_builder / response_parser: Override to change the LLM contract.
     """
@@ -55,6 +66,9 @@ class Engine:
     k: int = 12
     rerank_top_k: int = 8
     min_confidence: float = 0.45
+    gate_on: str = "retrieval"
+    insufficient_determination: Optional[str] = None
+    insufficient_summary: str = INSUFFICIENT_SUMMARY
     chunk_size: int = 1500
     chunk_overlap: int = 300
     prompt_builder: PromptBuilder = build_eval_prompt
@@ -63,6 +77,8 @@ class Engine:
     def __post_init__(self):
         if self.store is None:
             self.store = InMemoryVectorStore()
+        if self.gate_on not in ("retrieval", "rerank"):
+            raise ValueError("gate_on must be 'retrieval' or 'rerank'")
 
     # -- ingestion -------------------------------------------------------------
 
@@ -105,26 +121,34 @@ class Engine:
 
     # -- evaluation ------------------------------------------------------------
 
+    def _retrieve_raw(self, query: str, namespace: str) -> List[Hit]:
+        """First-pass retrieval, sorted by similarity (before any reranking)."""
+        embedding = self.embed([query])[0]
+        return self.store.query(embedding, self.k, namespace=namespace)
+
+    def _apply_rerank(self, query: str, raw_hits: List[Hit]) -> List[Hit]:
+        if self.reranker and raw_hits:
+            return self.reranker.rerank(query, raw_hits, self.rerank_top_k)
+        return raw_hits[: self.rerank_top_k]
+
     def retrieve(self, query: str, namespace: str = "default") -> List[Hit]:
         """Retrieve (and rerank) the most relevant evidence for a query."""
-        embedding = self.embed([query])[0]
-        hits = self.store.query(embedding, self.k, namespace=namespace)
-        if self.reranker and hits:
-            hits = self.reranker.rerank(query, hits, self.rerank_top_k)
-        else:
-            hits = hits[: self.rerank_top_k]
-        return hits
+        return self._apply_rerank(query, self._retrieve_raw(query, namespace))
 
     def evaluate(self, question: Question, namespace: str = "default") -> Answer:
         """Answer a single question from the evidence in `namespace`."""
-        hits = self.retrieve(question.prompt, namespace=namespace)
-        confidence = hits[0].score if hits else 0.0
+        raw_hits = self._retrieve_raw(question.prompt, namespace)
+        hits = self._apply_rerank(question.prompt, raw_hits)
+
+        retrieval_conf = raw_hits[0].score if raw_hits else 0.0
+        rerank_conf = hits[0].score if hits else 0.0
+        confidence = retrieval_conf if self.gate_on == "retrieval" else rerank_conf
 
         if confidence < self.min_confidence:
             return Answer(
                 question_id=question.id,
-                determination=_insufficient_determination(question),
-                summary=INSUFFICIENT_SUMMARY,
+                determination=self._insufficient_determination(question),
+                summary=self.insufficient_summary,
                 citations=[],
                 confidence=confidence,
                 insufficient_evidence=True,
@@ -143,6 +167,18 @@ class Engine:
             insufficient_evidence=False,
             raw=raw,
         )
+
+    def _insufficient_determination(self, question: Question) -> str:
+        """The determination used when the confidence gate fires.
+
+        An explicit ``insufficient_determination`` wins; otherwise the question's
+        last choice (by convention the "negative" end); otherwise a generic label.
+        """
+        if self.insufficient_determination is not None:
+            return self.insufficient_determination
+        if question.choices:
+            return question.choices[-1]
+        return "Insufficient Evidence"
 
     def evaluate_all(
         self,
@@ -173,14 +209,3 @@ def _normalize_document(doc: Document) -> "tuple[str, dict]":
         text = meta.pop("text", None) or meta.pop("content", "")
         return text, meta
     raise TypeError(f"Unsupported document type: {type(doc)!r}")
-
-
-def _insufficient_determination(question: Question) -> str:
-    """The determination used when the confidence gate fires.
-
-    When the question defines a closed choice set, use its last option (by
-    convention the "not met / negative" end). Otherwise use a generic label.
-    """
-    if question.choices:
-        return question.choices[-1]
-    return "Insufficient Evidence"

@@ -1,0 +1,72 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "attestq"
+version = "0.1.0"
+description = "Answer security questionnaires and compliance attestations from your evidence — a model-agnostic RAG kernel."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Vinay Vobbilichetty" }]
+keywords = [
+    "security",
+    "compliance",
+    "rag",
+    "questionnaire",
+    "vendor-risk",
+    "third-party-risk",
+    "due-diligence",
+    "audit",
+    "attestation",
+    "llm",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Security",
+    "Topic :: Office/Business",
+]
+# The core kernel is intentionally dependency-free.
+dependencies = []
+
+[project.optional-dependencies]
+chroma = ["chromadb>=0.4"]
+openai = ["openai>=1.0"]
+ollama = ["requests>=2.28"]
+rerank = ["sentence-transformers>=2.2"]
+loaders = ["pypdf>=4.0", "python-docx>=1.1", "openpyxl>=3.1"]
+export = ["python-docx>=1.1"]
+all = [
+    "chromadb>=0.4",
+    "openai>=1.0",
+    "requests>=2.28",
+    "sentence-transformers>=2.2",
+    "pypdf>=4.0",
+    "python-docx>=1.1",
+    "openpyxl>=3.1",
+]
+dev = ["pytest>=7.0", "pytest-cov", "build", "twine", "ruff"]
+
+[project.urls]
+Homepage = "https://github.com/vinayvobbili/attestq"
+Repository = "https://github.com/vinayvobbili/attestq"
+Issues = "https://github.com/vinayvobbili/attestq/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"

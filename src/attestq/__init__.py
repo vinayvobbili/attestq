@@ -23,6 +23,13 @@ document loaders, rerankers) ship behind optional extras.
 
 from .chunking import split_text
 from .engine import Engine
+from .export import answers_to_dict, summarize, to_docx, to_json, to_markdown
+from .io import (
+    load_questionnaire,
+    questionnaire_from_dict,
+    questionnaire_to_dict,
+    save_questionnaire,
+)
 from .models import Answer, Citation, Hit, Question, Questionnaire
 from .prompts import build_eval_prompt, parse_response
 from .protocols import ChatFn, EmbedFn, Reranker, VectorStore
@@ -46,5 +53,16 @@ __all__ = [
     "parse_response",
     "split_text",
     "cosine_similarity",
+    # export
+    "to_json",
+    "to_markdown",
+    "to_docx",
+    "summarize",
+    "answers_to_dict",
+    # io
+    "load_questionnaire",
+    "save_questionnaire",
+    "questionnaire_from_dict",
+    "questionnaire_to_dict",
     "__version__",
 ]

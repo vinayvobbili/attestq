@@ -206,6 +206,47 @@ engine = Engine(chat=big_model, embed=embedder, verify=True,
 Every failure path in that classifier — endpoint down, unparseable reply —
 leaves the flag standing.
 
+## Closing the loop
+
+Every reviewer who edits a draft before shipping it is handing you a quality
+label for free — and most systems throw it away, because the final answer
+overwrites the draft in place. Keep both and you can answer the question every
+RAG stack should be able to answer and usually can't: *does the confidence
+number mean anything?*
+
+```python
+from attestq import outcome_from_answer, build_scorecard
+
+outcomes = [
+    outcome_from_answer(answer, question, final=what_the_reviewer_shipped)
+    for answer, question, what_the_reviewer_shipped in reviewed_items
+]
+
+card = build_scorecard(outcomes)
+card["acceptance_rate"]   # 0.62 — shipped as drafted
+card["calibrated"]        # True / False / None ("not enough data to say")
+card["source_trust"]      # worst-performing documents first
+```
+
+Three things come out of it:
+
+- **Acceptance rate** — how often a draft ships as written, with edits graded
+  from cosmetic to wholesale rewrite. Items still awaiting review count as
+  neither, so the number doesn't move with queue depth.
+- **Calibration by confidence band** — the real test of your gate. A healthy
+  profile is monotonic: acceptance climbing with confidence. Flat means the
+  score is decorative and every threshold built on it is arbitrary; inverted
+  means it's actively misleading. `is_calibrated` returns `None` rather than a
+  verdict when the sample is too thin to support one.
+- **Per-source trust** — which documents back answers that survive review and
+  which back rewrites. A document that repeatedly produces rewritten answers is
+  stale, ambiguous, or wrong for the questions it keeps matching. This is the
+  raw material for source-authority weighting at retrieval time.
+
+`outcome_from_answer` is duck-typed, so records from a system that never touched
+attestq fold into the same scorecard as long as they expose the same handful of
+attributes.
+
 Everything is swappable:
 
 | Piece | Default | Swap for |
@@ -231,7 +272,8 @@ Everything is swappable:
 
 ## Status
 
-Usable today: the core kernel, the verification layer, in-memory + Chroma
+Usable today: the core kernel, the verification and feedback layers,
+in-memory + Chroma
 stores, OpenAI/Ollama adapters, a cross-encoder reranker, document loaders,
 JSON/Markdown/Word export, a CLI, and a web demo. Contributions and issues
 welcome.

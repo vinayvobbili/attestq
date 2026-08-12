@@ -154,6 +154,58 @@ question ──▶ embed ──▶ retrieve(k) ──▶ rerank(top_k) ──▶
                               above threshold ──▶ prompt LLM ─┴──▶ parse ──▶ Answer(determination, summary, citations, confidence)
 ```
 
+## Verifying the draft
+
+Drafting is half the job; the other half is not trusting the draft. Turn on
+`verify=True` and every answer carries two reports:
+
+```python
+engine = Engine(chat=my_llm, embed=my_embedder, verify=True)
+answer = engine.evaluate(question, namespace="vendor-x")
+
+if answer.needs_review:
+    print(answer.grounding.unverified)   # ['2019-03-01'] — asserted, not in evidence
+    print(answer.quality.detail())       # "only 20% of the answer is carried by ..."
+```
+
+**`answer.grounding`** extracts every concrete value the draft asserted — dates,
+versions, percentages, standards, durations — and confirms each one actually
+occurs in the evidence. This catches the highest-liability failure: *"certified
+to ISO 27001 since 2019-03-01"* when neither appears in a single retrieved
+document.
+
+**`answer.quality`** catches the quieter failure — an answer that restates the
+question and cites evidence it never drew on:
+
+> **Q:** Are encryption keys securely managed through defined key-management processes?
+> **A:** Yes. Encryption keys are securely managed through defined key-management processes.
+
+That asserts nothing the question didn't already say. Per sentence, it measures
+*support* (closeness to the retrieved evidence) against *echo* (closeness to the
+question), each judged against the question's own similarity to that evidence —
+so there is no magic cosine constant to recalibrate when you swap embedders.
+
+Both checks are **deterministic**: no second LLM grading the first, which would
+only share the drafter's blind spots. Both **flag and never rewrite** — a
+flagged answer may still be the right answer, so the disposition stays with the
+reviewer. Verification is off by default; it costs one extra embedding call per
+answer.
+
+One judgment measurement genuinely can't make is whether a question wanted
+documentary evidence at all — *"What is your registered legal entity name?"* has
+a correct answer no policy document will ever back. Inject a small model to
+decide, and it may only ever **clear** a flag, never raise one:
+
+```python
+from attestq import make_claim_classifier
+
+engine = Engine(chat=big_model, embed=embedder, verify=True,
+                claim_classifier=make_claim_classifier(small_fast_model))
+```
+
+Every failure path in that classifier — endpoint down, unparseable reply —
+leaves the flag standing.
+
 Everything is swappable:
 
 | Piece | Default | Swap for |
@@ -169,6 +221,9 @@ Everything is swappable:
 - **Bring your own model.** No provider is hard-wired. A lambda is enough.
 - **Grounded or silent.** Answers cite their evidence; thin evidence yields an
   explicit "insufficient" result, never a confident guess.
+- **The model proposes, deterministic code disposes.** Verification is plain
+  string and vector math, so the verifier cannot hallucinate the way an
+  LLM-grading-an-LLM judge can. It flags for a human; it never rewrites.
 - **Per-corpus isolation.** One store, many namespaces — keep each vendor's
   evidence separate without standing up a new index each time.
 - **Light core.** The kernel imports nothing third-party; heavy deps stay in
@@ -176,9 +231,10 @@ Everything is swappable:
 
 ## Status
 
-Usable today: the core kernel, in-memory + Chroma stores, OpenAI/Ollama
-adapters, a cross-encoder reranker, document loaders, JSON/Markdown/Word export,
-a CLI, and a web demo. Contributions and issues welcome.
+Usable today: the core kernel, the verification layer, in-memory + Chroma
+stores, OpenAI/Ollama adapters, a cross-encoder reranker, document loaders,
+JSON/Markdown/Word export, a CLI, and a web demo. Contributions and issues
+welcome.
 
 ## License
 

@@ -17,14 +17,31 @@ Quick start::
     )
     print(answer.determination, answer.confidence, answer.citations)
 
+Drafting is only half the job; the other half is not trusting the draft. Set
+``Engine(verify=True)`` and every answer carries two reports — whether the
+specifics it asserts (dates, versions, standards) actually occur in the
+evidence, and whether its prose is carried by that evidence or merely restates
+the question::
+
+    engine = Engine(chat=my_llm, embed=my_embedder, verify=True)
+    answer = engine.evaluate(question, namespace="vendor-x")
+    if answer.needs_review:
+        print(answer.grounding.unverified, answer.quality.detail())
+
+Both checks FLAG and never rewrite, and both are deterministic — no second LLM
+grading the first. See `attestq.grounding` and `attestq.quality`.
+
 The core is dependency-free. Provider adapters (Chroma, Ollama, OpenAI,
 document loaders, rerankers) ship behind optional extras.
 """
 
+from . import grounding, quality
 from .chunking import split_text
+from .claim_classifier import LLMClaimClassifier, make_claim_classifier
 from .embedders import HashEmbedder
 from .engine import Engine
 from .export import answers_to_dict, summarize, to_docx, to_json, to_markdown
+from .grounding import GroundingReport, check_answer, extract_specifics, find_verbatim_span
 from .io import (
     load_questionnaire,
     questionnaire_from_dict,
@@ -34,9 +51,10 @@ from .io import (
 from .models import Answer, Citation, Hit, Question, Questionnaire
 from .prompts import build_eval_prompt, parse_response
 from .protocols import ChatFn, EmbedFn, Reranker, VectorStore
+from .quality import AnswerQualityReport, ClaimClassifier, assess, evidence_support
 from .store import InMemoryVectorStore, cosine_similarity
 
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
 __all__ = [
     "Engine",
@@ -55,6 +73,19 @@ __all__ = [
     "parse_response",
     "split_text",
     "cosine_similarity",
+    # verification layer
+    "grounding",
+    "quality",
+    "GroundingReport",
+    "AnswerQualityReport",
+    "check_answer",
+    "assess",
+    "extract_specifics",
+    "find_verbatim_span",
+    "evidence_support",
+    "ClaimClassifier",
+    "LLMClaimClassifier",
+    "make_claim_classifier",
     # export
     "to_json",
     "to_markdown",

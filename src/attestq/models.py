@@ -10,6 +10,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional, Sequence
 
+from .grounding import GroundingReport
+from .quality import AnswerQualityReport
+
 
 @dataclass(frozen=True)
 class Question:
@@ -92,6 +95,11 @@ class Answer:
             was made — i.e. the corpus did not contain evidence relevant enough to
             answer. Absence of evidence is a valid, first-class result.
         raw: The unparsed model response (empty when the gate fired).
+        grounding: Specifics the draft asserted, and which of them the evidence
+            does not support. Populated only when the Engine has `verify=True`;
+            None means the check did not run, which is not the same as a pass.
+        quality: How much of the answer is carried by its evidence versus
+            restated from the question. Populated only when `verify=True`.
     """
 
     question_id: str
@@ -101,3 +109,19 @@ class Answer:
     confidence: float = 0.0
     insufficient_evidence: bool = False
     raw: str = ""
+    grounding: Optional[GroundingReport] = None
+    quality: Optional[AnswerQualityReport] = None
+
+    @property
+    def needs_review(self) -> bool:
+        """True when verification found something a human should look at.
+
+        False when the checks ran clean *and* when they did not run at all —
+        callers that care about the difference should test `grounding`/`quality`
+        for None. Kept as the one-line "should this be triaged" signal.
+        """
+        if self.grounding is not None and not self.grounding.ok:
+            return True
+        if self.quality is not None and self.quality.flagged:
+            return True
+        return False

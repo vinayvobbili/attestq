@@ -80,7 +80,8 @@ def test_invalid_gate_on_rejected():
 
 
 def test_insufficient_determination_override():
-    # TPCRA's case: gate outcome must be "Not Met", not the last choice "Not Applicable".
+    # A vendor-risk case: gate outcome must be "Not Met", not the last choice
+    # "Not Applicable" — absent evidence is a gap, not an exemption.
     eng = _engine(insufficient_determination="Not Met",
                   insufficient_summary="Not provided by vendor documentation.")
     eng.ingest([EVIDENCE], namespace="v")

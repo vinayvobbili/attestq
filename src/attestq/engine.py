@@ -10,10 +10,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Callable, Iterable, List, Mapping, Optional, Sequence, Union
 
+from . import grounding as _grounding
+from . import quality as _quality
 from .chunking import split_text
 from .models import Answer, Citation, Hit, Question, Questionnaire
 from .prompts import build_eval_prompt, parse_response
 from .protocols import ChatFn, EmbedFn, Reranker, VectorStore
+from .quality import ClaimClassifier
 from .store import InMemoryVectorStore
 
 # A document to ingest: raw text, or a (text, metadata) pair / mapping.
@@ -57,6 +60,15 @@ class Engine:
         insufficient_summary: Summary text used when the gate fires.
         chunk_size / chunk_overlap: Defaults for the built-in splitter.
         prompt_builder / response_parser: Override to change the LLM contract.
+        verify: Run the post-draft verification layer and attach its reports to
+            each Answer (`answer.grounding`, `answer.quality`). Off by default:
+            it costs one extra embedding call per answer, and existing callers
+            should not start paying for it on upgrade. The checks never change
+            the determination — they FLAG, so a reviewer decides.
+        claim_classifier: Optional ``(question, answer) -> bool`` hook, consulted
+            only for answers the quality check already flagged, and able only to
+            clear a flag (see `attestq.claim_classifier`). Ignored when
+            `verify` is False.
     """
 
     chat: ChatFn
@@ -73,6 +85,8 @@ class Engine:
     chunk_overlap: int = 300
     prompt_builder: PromptBuilder = build_eval_prompt
     response_parser: ResponseParser = parse_response
+    verify: bool = False
+    claim_classifier: Optional[ClaimClassifier] = None
 
     def __post_init__(self):
         if self.store is None:
@@ -158,7 +172,7 @@ class Engine:
         prompt = self.prompt_builder(question, hits)
         raw = self.chat(prompt)
         determination, summary, citations = self.response_parser(raw, hits)
-        return Answer(
+        answer = Answer(
             question_id=question.id,
             determination=determination,
             summary=summary,
@@ -166,6 +180,29 @@ class Engine:
             confidence=confidence,
             insufficient_evidence=False,
             raw=raw,
+        )
+        if self.verify:
+            self._verify(answer, question, hits)
+        return answer
+
+    def _verify(self, answer: Answer, question: Question, hits: Sequence[Hit]) -> None:
+        """Attach grounding + quality reports to a drafted answer, in place.
+
+        Verifies the summary — the prose a reader acts on — against the same
+        evidence the model was shown, so the check sees exactly what the drafter
+        saw. Never runs on a gated answer: there is no draft to verify, and
+        reporting "clean" for text no model wrote would be a lie of omission.
+        """
+        context = "\n\n".join(h.text for h in hits)
+        answer.grounding = _grounding.check_answer(
+            answer.summary, context=context, question=question.prompt,
+        )
+        answer.quality = _quality.assess(
+            answer.summary,
+            context=context,
+            question=question.prompt,
+            embed_fn=self.embed,
+            claim_classifier=self.claim_classifier,
         )
 
     def _insufficient_determination(self, question: Question) -> str:

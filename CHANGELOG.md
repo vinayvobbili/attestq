@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.3.0
+
+Added the verification layer: attestq no longer stops at the draft, it checks
+it. Two deterministic reports per answer, plus an optional model-backed hook for
+the one call measurement can't make. Nothing here rewrites an answer — the
+checks flag, and a reviewer decides.
+
+- `Engine(verify=True)` — populates `Answer.grounding` and `Answer.quality`, and
+  `Answer.needs_review` as the one-line triage signal. Off by default; it costs
+  one extra embedding call per answer. A gated ("insufficient evidence") answer
+  is never verified, and `None` reports mean the check did not run — which is
+  deliberately not the same as a pass.
+- `attestq.grounding` — extracts the concrete values a draft asserts (dates,
+  versions, percentages, standards, durations) and confirms each occurs in the
+  evidence, the question, or a supplied past answer. `check_answer`,
+  `extract_specifics`, `find_verbatim_span`, plus annotate/parse/strip helpers
+  for stamping the finding into an existing notes field without a schema change.
+- `attestq.quality` — per-sentence *support* vs *echo* scoring that catches an
+  answer restating its question while citing evidence it never drew on. Judged
+  against the question's own similarity to its evidence, so there is no absolute
+  cosine threshold to recalibrate when the embedder changes. Falls back to
+  lexical scoring when no embedder is supplied or one raises, and says which
+  path it took in `report.method`.
+- `attestq.claim_classifier` — `make_claim_classifier(chat)` builds a
+  `ClaimClassifier` over any `ChatFn` for questions that want no documentary
+  evidence ("What is your registered legal entity name?"). It can only ever
+  clear a flag, is memoized per question, and fails closed: an unreachable or
+  unparseable model leaves the flag standing.
+
+Both report types are plain dataclasses, so they serialize through
+`answers_to_dict` / `to_json` with no extra work. Fully backward compatible —
+`verify` defaults to False and `Answer` gained only optional fields.
+
 ## 0.2.0
 
 Added finer control over the confidence gate, so a reranker can sharpen context

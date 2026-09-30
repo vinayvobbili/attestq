@@ -137,3 +137,23 @@ def test_store_assets_have_the_sizes_the_web_store_requires(tmp_path, pw):
             "icon128.png": (128, 128),
         }.get(name, store_assets.SCREEN)
         assert _png_size(path) == expected, name
+
+
+def test_demo_video_is_a_narrated_1280x800_mp4(tmp_path, pw):
+    slidecast = pytest.importorskip("slidecast")
+    try:
+        ffmpeg = slidecast.find_ffmpeg()
+    except slidecast.FFmpegNotFound:
+        pytest.skip("ffmpeg not available")
+    import subprocess
+
+    import demo_video
+
+    try:
+        out = demo_video.record(tmp_path / "demo.mp4", voice="silent", playwright=pw)
+    except harness.BrowserUnavailable as exc:
+        pytest.skip(str(exc))
+    probe = subprocess.run([ffmpeg, "-i", str(out)], capture_output=True, text=True).stderr
+    assert "1280x800" in probe and "Audio: aac" in probe
+    assert slidecast.probe_duration(out, ffmpeg=ffmpeg) > 20  # five steps and the end card
+    assert (tmp_path / "demo_poster.jpg").is_file()

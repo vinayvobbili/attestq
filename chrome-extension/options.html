@@ -1,0 +1,105 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>attestq settings</title>
+    <link rel="stylesheet" href="popup.css" />
+    <style>
+      body {
+        width: auto;
+        max-width: 560px;
+        max-height: none;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      h1 {
+        font-size: 18px;
+      }
+      .field {
+        margin-bottom: 16px;
+      }
+      .field label {
+        display: block;
+        margin-bottom: 4px;
+        font-weight: 600;
+      }
+      .field input[type='url'],
+      .field input[type='password'],
+      .field input[type='text'] {
+        width: 100%;
+        padding: 7px 9px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--bg);
+      }
+      .hint {
+        margin-top: 4px;
+        color: var(--muted);
+        font-size: 12px;
+      }
+      .managed {
+        color: var(--warn);
+      }
+      .actions {
+        display: flex;
+        gap: 8px;
+        align-items: center;
+      }
+      button.secondary {
+        padding: 7px 14px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        background: var(--surface);
+        cursor: pointer;
+      }
+      #result {
+        margin-top: 12px;
+      }
+      #result.ok {
+        color: var(--ok);
+      }
+      #result.bad {
+        color: var(--bad);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>attestq settings</h1>
+    <p class="hint">
+      If your organisation set this up for you, these are already filled in and you don't need to change
+      anything.
+    </p>
+
+    <form id="form">
+      <div class="field">
+        <label for="serverUrl">Answer server address</label>
+        <input id="serverUrl" type="url" required placeholder="https://attestq.example.internal" />
+        <div class="hint">The attestq server that holds your vendors' evidence. Ask your admin for it.</div>
+      </div>
+
+      <div class="field">
+        <label for="apiToken">Access token</label>
+        <input id="apiToken" type="password" autocomplete="off" placeholder="Leave blank if not needed" />
+      </div>
+
+      <div class="field">
+        <label for="defaultNamespace">Default vendor</label>
+        <input id="defaultNamespace" type="text" placeholder="Optional" />
+      </div>
+
+      <div class="field">
+        <label class="check"
+          ><input id="appendSources" type="checkbox" /> Add the source document names to each explanation</label
+        >
+      </div>
+
+      <div class="actions">
+        <button class="primary" type="submit">Save</button>
+        <button id="test" class="secondary" type="button">Test connection</button>
+      </div>
+      <p id="result" role="status"></p>
+    </form>
+
+    <script type="module" src="options.js"></script>
+  </body>
+</html>

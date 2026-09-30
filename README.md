@@ -37,6 +37,7 @@ pip install "attestq[openai]"       # + OpenAI-compatible chat adapter
 pip install "attestq[ollama]"       # + local Ollama embeddings
 pip install "attestq[rerank]"       # + cross-encoder reranker
 pip install "attestq[loaders]"      # + pdf / docx / xlsx loaders
+pip install "attestq[server]"       # + `attestq serve` HTTP API (for the Chrome extension)
 pip install "attestq[all]"          # everything
 ```
 
@@ -127,6 +128,35 @@ attestq demo
 attestq demo --provider ollama               # local, no key, nothing leaves the host
 attestq run -q q.yaml -e ./ev --provider openai --base-url https://my-gateway/v1
 ```
+
+## Web forms: the Chrome extension
+
+Many questionnaires live in a portal, not a spreadsheet. `attestq serve` puts an
+HTTP API in front of an Engine, and the bundled Chrome extension uses it to
+answer the questions on a web form:
+
+1. The extension reads the form's questions and their options.
+2. It asks the server for cited answers from the chosen vendor's evidence.
+3. The reviewer ticks, edits or skips each answer, then fills the form.
+
+What the reviewer ships comes back as feedback for the scorecard.
+
+```bash
+pip install "attestq[server]"
+attestq serve --demo --offline                      # try it: sample vendor, no model needed
+attestq serve --chroma ./store --verify --feedback feedback.jsonl --token "$TOKEN"   # for real
+```
+
+| Endpoint | Purpose |
+|----------|---------|
+| `GET /namespaces` | corpora in the store (the extension's vendor picker) |
+| `POST /answer` | answer up to 200 questions against one namespace, in parallel |
+| `POST /feedback` | record drafted vs. shipped answers |
+| `GET /scorecard` | `build_scorecard` over everything recorded |
+
+The API is plain JSON over `Question`/`Answer`, so any client can use it, not
+just the extension. The extension's setup, its rollout through Chrome policy, and
+Web Store publishing are covered in [`chrome-extension/`](chrome-extension/README.md).
 
 ## Try it instantly (no setup)
 
@@ -275,8 +305,8 @@ Everything is swappable:
 Usable today: the core kernel, the verification and feedback layers,
 in-memory + Chroma
 stores, OpenAI/Ollama adapters, a cross-encoder reranker, document loaders,
-JSON/Markdown/Word export, a CLI, and a web demo. Contributions and issues
-welcome.
+JSON/Markdown/Word export, a CLI, an HTTP server, a Chrome extension for
+web-form questionnaires, and a web demo. Contributions and issues welcome.
 
 ## License
 

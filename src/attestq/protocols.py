@@ -55,6 +55,19 @@ class VectorStore(Protocol):
 
 
 @runtime_checkable
+class NamespaceLister(Protocol):
+    """Optional VectorStore extension: enumerate the corpora a store holds.
+
+    Kept out of VectorStore itself so existing third-party stores stay valid.
+    `attestq serve` uses it to offer a vendor picker; without it, clients must
+    name the namespace themselves.
+    """
+
+    def namespaces(self) -> List[str]:
+        ...
+
+
+@runtime_checkable
 class Reranker(Protocol):
     """Re-orders retrieved hits by relevance to the query.
 

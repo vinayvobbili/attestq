@@ -2,6 +2,7 @@
 
     attestq demo                       # run the bundled sample assessment
     attestq run -q q.yaml -e ./evidence -o report.md
+    attestq serve --demo --offline     # HTTP API for the Chrome extension
     attestq version
 
 Providers are resolved from flags or environment so the same command works
@@ -66,6 +67,81 @@ def _cmd_run(args) -> int:
     print(f"Ingesting {len(docs)} evidence documents...", file=sys.stderr)
     engine.ingest(docs, namespace=args.namespace)
     return _run_and_emit(engine, qn, args.namespace, args)
+
+
+def _cmd_serve(args) -> int:
+    from .adapters._util import require
+
+    uvicorn = require("uvicorn", "server")
+    from .server import create_app
+
+    engine = _build_serve_engine(args)
+    if args.demo:
+        _ingest_once(engine, DEMO_DOCUMENTS, DEMO_NAMESPACE)
+    if args.evidence:
+        docs = _collect_evidence(args.evidence)
+        if not docs:
+            print("error: no readable evidence documents found", file=sys.stderr)
+            return 2
+        _ingest_once(engine, docs, args.namespace)
+
+    token = args.token or os.environ.get("ATTESTQ_API_TOKEN")
+    if args.host not in ("127.0.0.1", "localhost", "::1") and not token:
+        print("warning: listening beyond localhost with no --token; anyone who can reach "
+              "this port can query your evidence", file=sys.stderr)
+    app = create_app(engine, api_token=token, feedback_path=args.feedback, workers=args.workers)
+    uvicorn.run(app, host=args.host, port=args.port)
+    return 0
+
+
+def _build_serve_engine(args) -> Engine:
+    store = None
+    if args.chroma:
+        from .adapters import ChromaStore
+
+        store = ChromaStore(path=args.chroma, collection=args.collection)
+    if args.offline:
+        from .embedders import HashEmbedder
+
+        chat, embed = offline_chat, HashEmbedder()
+        print("Offline mode: token-overlap retrieval and placeholder answers. "
+              "Configure a provider for real ones.", file=sys.stderr)
+    else:
+        chat, embed = _build_providers(args)
+    return Engine(chat=chat, embed=embed, store=store,
+                  min_confidence=args.min_confidence, verify=args.verify)
+
+
+def _ingest_once(engine: Engine, docs, namespace: str) -> None:
+    """Ingest unless the namespace already has chunks — a persistent store survives
+    restarts, and re-ingesting would duplicate every chunk."""
+    existing = engine.store.count(namespace)
+    if existing:
+        print(f"'{namespace}' already holds {existing} chunks; not re-ingesting.", file=sys.stderr)
+        return
+    n = engine.ingest(docs, namespace=namespace)
+    print(f"Ingested {n} chunks into '{namespace}'.", file=sys.stderr)
+
+
+def offline_chat(prompt: str) -> str:
+    """Placeholder model for trying the service with no provider.
+
+    Picks the first allowed determination and quotes the top excerpt, so every
+    moving part — retrieval, the gate, citations, a client filling a form — runs
+    for real while the verdicts themselves are obviously canned.
+    """
+    import re
+
+    allowed = re.search(r"DETERMINATION must be exactly one of: (.+)\.", prompt)
+    determination = allowed.group(1).split(", ")[0] if allowed else "See evidence"
+    excerpt = re.search(r"\[1\] \(source: [^)]*\)\n(.+)", prompt)
+    quote = excerpt.group(1).strip()[:200] if excerpt else "no excerpt"
+    return (
+        f"DETERMINATION: {determination}\n"
+        f"EVIDENCE SUMMARY: [offline placeholder] Top evidence: {quote}\n"
+        "CITATIONS: 1\n"
+        "NOTES: none"
+    )
 
 
 def _run_and_emit(engine: Engine, qn: Questionnaire, namespace: str, args) -> int:
@@ -176,7 +252,7 @@ def _format_from_path(path) -> str:
 # --- argument parser ----------------------------------------------------------
 
 
-def _add_provider_args(p: argparse.ArgumentParser) -> None:
+def _add_provider_args(p: argparse.ArgumentParser, report: bool = True) -> None:
     p.add_argument("--provider", choices=["auto", "openai", "ollama"], default="auto",
                    help="LLM/embedding provider (default: auto - openai if OPENAI_API_KEY else ollama)")
     p.add_argument("--chat-model", help="chat model name override")
@@ -184,6 +260,8 @@ def _add_provider_args(p: argparse.ArgumentParser) -> None:
     p.add_argument("--base-url", help="base URL for an OpenAI-compatible endpoint, or Ollama host")
     p.add_argument("--min-confidence", type=float, default=0.45,
                    help="retrieval-score gate; below this -> insufficient evidence (default: 0.45)")
+    if not report:
+        return
     p.add_argument("-o", "--out", help="write the report to this path (default: stdout)")
     p.add_argument("--format", choices=["md", "json", "docx"], help="output format (default: inferred from --out, else md)")
 
@@ -205,6 +283,23 @@ def _build_parser() -> argparse.ArgumentParser:
     p_run.add_argument("-n", "--namespace", default="default", help="corpus namespace (default: default)")
     _add_provider_args(p_run)
     p_run.set_defaults(func=_cmd_run)
+
+    p_serve = sub.add_parser("serve", help="serve an HTTP API for browser clients (needs attestq[server])")
+    p_serve.add_argument("--demo", action="store_true", help=f"load the bundled sample evidence as '{DEMO_NAMESPACE}'")
+    p_serve.add_argument("--offline", action="store_true",
+                         help="no provider: token-overlap retrieval and placeholder answers, for trying it out")
+    p_serve.add_argument("-e", "--evidence", nargs="+", help="evidence files/directories to ingest at startup")
+    p_serve.add_argument("-n", "--namespace", default="default", help="namespace for --evidence (default: default)")
+    p_serve.add_argument("--chroma", metavar="PATH", help="persistent Chroma store directory (default: in memory)")
+    p_serve.add_argument("--collection", default="attestq_evidence", help="Chroma collection name")
+    p_serve.add_argument("--verify", action="store_true", help="run grounding/quality checks on every answer")
+    p_serve.add_argument("--feedback", metavar="PATH", help="JSONL file for reviewer feedback; enables /feedback and /scorecard")
+    p_serve.add_argument("--token", help="require this bearer token (default: $ATTESTQ_API_TOKEN)")
+    p_serve.add_argument("--host", default="127.0.0.1", help="bind address (default: 127.0.0.1)")
+    p_serve.add_argument("--port", type=int, default=8000, help="port (default: 8000)")
+    p_serve.add_argument("--workers", type=int, default=8, help="questions answered in parallel (default: 8)")
+    _add_provider_args(p_serve, report=False)
+    p_serve.set_defaults(func=_cmd_serve)
 
     p_ver = sub.add_parser("version", help="print version")
     p_ver.set_defaults(func=_cmd_version)

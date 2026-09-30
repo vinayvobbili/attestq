@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "attestq"
-version = "0.4.0"
+version = "0.5.0"
 description = "Answer security questionnaires and compliance attestations from your evidence — a model-agnostic RAG kernel."
 readme = "README.md"
 requires-python = ">=3.9"
@@ -45,6 +45,7 @@ rerank = ["sentence-transformers>=2.2"]
 loaders = ["pypdf>=4.0", "python-docx>=1.1", "openpyxl>=3.1"]
 export = ["python-docx>=1.1"]
 yaml = ["pyyaml>=6.0"]
+server = ["fastapi>=0.100", "uvicorn>=0.23"]
 all = [
     "chromadb>=0.4",
     "openai>=1.0",
@@ -54,8 +55,10 @@ all = [
     "python-docx>=1.1",
     "openpyxl>=3.1",
     "pyyaml>=6.0",
+    "fastapi>=0.100",
+    "uvicorn>=0.23",
 ]
-dev = ["pytest>=7.0", "pytest-cov", "build", "twine", "ruff"]
+dev = ["pytest>=7.0", "pytest-cov", "build", "twine", "ruff", "fastapi>=0.100", "httpx"]
 
 [project.scripts]
 attestq = "attestq.cli:main"

@@ -1,0 +1,25 @@
+{
+  "type": "object",
+  "properties": {
+    "serverUrl": {
+      "title": "Answer server address",
+      "description": "Base URL of the attestq server (attestq serve), e.g. https://attestq.example.internal",
+      "type": "string"
+    },
+    "apiToken": {
+      "title": "Access token",
+      "description": "Bearer token the server requires (attestq serve --token). Leave unset if the server has none.",
+      "type": "string"
+    },
+    "defaultNamespace": {
+      "title": "Default vendor",
+      "description": "Namespace preselected in the vendor picker.",
+      "type": "string"
+    },
+    "appendSources": {
+      "title": "Append source names",
+      "description": "Add the evidence document names to each drafted explanation.",
+      "type": "boolean"
+    }
+  }
+}

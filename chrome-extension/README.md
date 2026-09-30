@@ -5,6 +5,8 @@ extension reads the questions on the page, asks an `attestq serve` server for
 grounded, cited answers, lets the reviewer check every one, and then fills the
 form. The reviewer still saves or submits the form themselves.
 
+▶ [Watch the 45-second walkthrough](https://youtu.be/WpVs9-BO05c)
+
 ```
  questionnaire page ──scan──▶ extension ──/answer──▶ attestq serve ──▶ your evidence + LLM
         ▲                         │

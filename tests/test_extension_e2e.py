@@ -2,7 +2,8 @@
 
 Loads chrome-extension/ unpacked into Playwright's Chromium, scans the bundled
 demo portal page, answers from the demo corpus with the offline engine, fills
-the page, and checks the page itself registered every change.
+the page, and checks the page itself registered every change. The stack comes
+from chrome-extension/tools/harness.py, which the store screenshot tool uses too.
 
 Skipped unless Playwright and its Chromium are installed:
 
@@ -14,119 +15,51 @@ and the filled page.
 
 from __future__ import annotations
 
-import functools
-import json
+import contextlib
 import os
-import shutil
-import socket
-import threading
-import time
-from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
+import struct
+import sys
 from pathlib import Path
 
 import pytest
 
 pytest.importorskip("fastapi")
-uvicorn = pytest.importorskip("uvicorn")
+pytest.importorskip("uvicorn")
 sync_api = pytest.importorskip("playwright.sync_api")
 
-from attestq import Engine, HashEmbedder  # noqa: E402
-from attestq.cli import offline_chat  # noqa: E402
-from attestq.demo import DEMO_DOCUMENTS, DEMO_NAMESPACE  # noqa: E402
-from attestq.server import create_app  # noqa: E402
+TOOLS = Path(__file__).resolve().parents[1] / "chrome-extension" / "tools"
+sys.path.insert(0, str(TOOLS))
+import harness  # noqa: E402
+import store_assets  # noqa: E402
 
-EXTENSION_DIR = Path(__file__).resolve().parents[1] / "chrome-extension"
-DEMO_PAGE = "vendor-review.html"
-
-
-def _free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return s.getsockname()[1]
+from attestq.demo import DEMO_NAMESPACE  # noqa: E402
 
 
 @pytest.fixture(scope="module")
-def api_url():
-    engine = Engine(chat=offline_chat, embed=HashEmbedder())
-    engine.ingest(DEMO_DOCUMENTS, namespace=DEMO_NAMESPACE)
-    port = _free_port()
-    server = uvicorn.Server(uvicorn.Config(create_app(engine), host="127.0.0.1", port=port, log_level="warning"))
-    thread = threading.Thread(target=server.run, daemon=True)
-    thread.start()
-    deadline = time.time() + 10
-    while not server.started and time.time() < deadline:
-        time.sleep(0.05)
-    yield f"http://127.0.0.1:{port}"
-    server.should_exit = True
-    thread.join(timeout=5)
+def pw():
+    with sync_api.sync_playwright() as playwright:
+        yield playwright
 
 
 @pytest.fixture(scope="module")
-def demo_url():
-    handler = functools.partial(SimpleHTTPRequestHandler, directory=str(EXTENSION_DIR / "demo"))
-    handler.log_message = lambda *a, **k: None
-    httpd = ThreadingHTTPServer(("127.0.0.1", 0), handler)
-    threading.Thread(target=httpd.serve_forever, daemon=True).start()
-    yield f"http://127.0.0.1:{httpd.server_address[1]}/{DEMO_PAGE}"
-    httpd.shutdown()
-
-
-@pytest.fixture(scope="module")
-def browser(tmp_path_factory):
-    # activeTab is granted by a user clicking the toolbar button, which automation
-    # can't do; the test copy gets host access instead. Nothing else differs.
-    ext = tmp_path_factory.mktemp("ext") / "attestq"
-    shutil.copytree(EXTENSION_DIR, ext, ignore=shutil.ignore_patterns("demo"))
-    manifest = json.loads((ext / "manifest.json").read_text())
-    manifest["host_permissions"] = ["<all_urls>"]
-    (ext / "manifest.json").write_text(json.dumps(manifest))
-
-    with sync_api.sync_playwright() as pw:
+def stack(pw):
+    with contextlib.ExitStack() as scope:
         try:
-            context = pw.chromium.launch_persistent_context(
-                str(tmp_path_factory.mktemp("profile")),
-                channel="chromium",
-                headless=True,
-                args=[f"--disable-extensions-except={ext}", f"--load-extension={ext}"],
-            )
-        except Exception as exc:  # browser binary missing
-            pytest.skip(f"Chromium unavailable: {exc}")
-        worker = context.service_workers[0] if context.service_workers else context.wait_for_event("serviceworker")
-        context.extension_id = worker.url.split("/")[2]
-        yield context
-        context.close()
+            demo = scope.enter_context(harness.demo_stack(pw))
+        except harness.BrowserUnavailable as exc:
+            pytest.skip(str(exc))
+        yield demo
 
 
-def _wait_for_job(ext_page, tab_id, statuses, timeout=60):
-    deadline = time.time() + timeout
-    while time.time() < deadline:
-        job = ext_page.evaluate(
-            "async (id) => (await chrome.storage.session.get(`job:${id}`))[`job:${id}`] || null", tab_id
-        )
-        if job and job["status"] in statuses:
-            return job
-        time.sleep(0.25)
-    raise AssertionError(f"job never reached {statuses}; last: {job and job['status']}")
-
-
-def test_scan_answer_review_fill(browser, api_url, demo_url):
+def test_scan_answer_review_fill(stack):
     shots = os.environ.get("ATTESTQ_E2E_SCREENSHOTS")
-    ext_id = browser.extension_id
-
-    form = browser.new_page()
-    form.goto(demo_url)
-
-    ext = browser.new_page()
-    ext.goto(f"chrome-extension://{ext_id}/options.html")
-    ext.evaluate("(url) => chrome.storage.sync.set({serverUrl: url})", api_url)
-    tab_id = ext.evaluate("async (url) => (await chrome.tabs.query({url}))[0].id", demo_url)
+    form = stack.context.new_page()
+    form.goto(stack.demo_url)
+    ext = stack.extension_page()
+    tab_id = harness.tab_id_for(ext, stack.demo_url)
 
     # --- scan + answer ---
-    ext.evaluate(
-        "([tabId, ns]) => chrome.runtime.sendMessage({type: 'analyze', tabId, namespace: ns})",
-        [tab_id, DEMO_NAMESPACE],
-    )
-    job = _wait_for_job(ext, tab_id, {"ready", "error"})
+    job = harness.analyze(ext, tab_id, DEMO_NAMESPACE)
     assert job["status"] == "ready", job.get("error")
     assert not job["error"]
 
@@ -154,36 +87,18 @@ def test_scan_answer_review_fill(browser, api_url, demo_url):
     assert mfa["checked"] and mfa["draft"]["choice"] == "Yes"
 
     if shots:
-        _screenshot_popup(browser, ext_id, job, Path(shots) / "popup-review.png")
+        harness.render_popup(stack, job, Path(shots) / "popup-review.png")
 
     # --- the reviewer edits a draft, and answers two gated questions by hand ---
-    # (This is what popup.js writes: an item's `edit` and `checked`.)
     edits = {
         mfa["key"]: "Edited by reviewer: MFA is enforced via SSO.",
         ir["key"]: "Written by reviewer: see the Helios IR plan.",
         rte["key"]: "Written by reviewer: subcontractors are assessed annually.",
     }
-    ext.evaluate(
-        """async ([tabId, edits]) => {
-             const k = `job:${tabId}`;
-             const job = (await chrome.storage.session.get(k))[k];
-             for (const item of job.items) {
-               if (item.key in edits) {
-                 item.edit.text = edits[item.key];
-                 item.checked = true;
-               }
-             }
-             await chrome.storage.session.set({[k]: job});
-           }""",
-        [tab_id, edits],
-    )
+    harness.edit_items(ext, tab_id, edits)
 
     # --- fill ---
-    ext.evaluate("(tabId) => chrome.runtime.sendMessage({type: 'commit', tabId})", tab_id)
-    job = _wait_for_job(ext, tab_id, {"ready"})
-    deadline = time.time() + 10
-    while "Filled" not in job["message"] and time.time() < deadline:
-        job = _wait_for_job(ext, tab_id, {"ready"})
+    job = harness.commit(ext, tab_id)
     filled = [it for it in job["items"] if it["result"]]
     assert filled and all(it["result"]["ok"] for it in filled), [it["result"] for it in filled]
 
@@ -203,21 +118,19 @@ def test_scan_answer_review_fill(browser, api_url, demo_url):
         form.screenshot(path=str(Path(shots) / "filled-form.png"), full_page=True)
 
 
-def _screenshot_popup(context, ext_id, job, path):
-    """Render the popup as a tab showing this job, for eyeballing the review UI."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    page = context.new_page()
-    page.set_viewport_size({"width": 460, "height": 900})
-    page.goto(f"chrome-extension://{ext_id}/popup.html")
-    page.evaluate(
-        """async (job) => {
-             const me = await chrome.tabs.getCurrent();
-             job = {...job, url: me.url};
-             await chrome.storage.session.set({[`job:${me.id}`]: job});
-           }""",
-        job,
-    )
-    page.reload()
-    page.wait_for_selector(".item")
-    page.screenshot(path=str(path), full_page=True)
-    page.close()
+def _png_size(path: Path):
+    return struct.unpack(">II", path.read_bytes()[16:24])
+
+
+def test_store_assets_have_the_sizes_the_web_store_requires(tmp_path, pw):
+    try:
+        written = {p.name: p for p in store_assets.build(tmp_path, playwright=pw)}
+    except harness.BrowserUnavailable as exc:
+        pytest.skip(str(exc))
+    assert set(written) == {
+        "screenshot-1-review.png", "screenshot-2-filled.png", "screenshot-3-settings.png",
+        "promo-small.png", "icon128.png",
+    }
+    for name, path in written.items():
+        expected = {"promo-small.png": store_assets.PROMO, "icon128.png": (128, 128)}.get(name, store_assets.SCREEN)
+        assert _png_size(path) == expected, name

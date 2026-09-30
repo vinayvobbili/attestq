@@ -2,7 +2,7 @@
 
     python chrome-extension/tools/package.py               # -> dist/attestq-extension-<version>.zip
 
-Packs only what the browser loads — no demo page, tools or tests — with
+Packs only what the browser loads — no demo page, tools, tests or docs — with
 manifest.json at the zip root as the store requires. Refuses to build when the
 manifest version and the attestq package version disagree, so the extension and
 the server it talks to are released together.
@@ -20,6 +20,7 @@ EXTENSION_DIR = Path(__file__).resolve().parents[1]
 REPO_DIR = EXTENSION_DIR.parent
 EXCLUDE_DIRS = {"demo", "tools", "__pycache__"}
 EXCLUDE_NAMES = {".DS_Store"}
+EXCLUDE_SUFFIXES = {".md"}  # docs for people, not the browser
 
 
 def package_version() -> str:
@@ -34,7 +35,8 @@ def extension_files(root: Path = EXTENSION_DIR):
     """Files the browser needs, as paths relative to the extension directory."""
     for path in sorted(root.rglob("*")):
         rel = path.relative_to(root)
-        if path.is_file() and not set(rel.parts[:-1]) & EXCLUDE_DIRS and rel.name not in EXCLUDE_NAMES:
+        if path.is_file() and not set(rel.parts[:-1]) & EXCLUDE_DIRS and rel.name not in EXCLUDE_NAMES \
+                and rel.suffix not in EXCLUDE_SUFFIXES:
             yield rel
 
 

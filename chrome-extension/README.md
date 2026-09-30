@@ -138,23 +138,21 @@ usually disable it, and it isn't how an organisation should distribute tools.
 
 ```bash
 python chrome-extension/tools/package.py        # -> dist/attestq-extension-<version>.zip
+python chrome-extension/tools/store_assets.py   # -> dist/store/ screenshots, promo tile, icon
 ```
 
-The packager includes only what the browser loads and refuses to build if
-`manifest.json` and the attestq package versions differ. Upload the zip in the
-[Developer Dashboard](https://chrome.google.com/webstore/devconsole), then:
+- **`package.py`:** packs only what the browser loads, and refuses to build if
+  `manifest.json` and the attestq package versions differ.
+- **`store_assets.py`:** runs the real extension against the demo form and
+  captures the listing images at the sizes the store requires.
 
-- **Single purpose:** fill security-questionnaire web forms with reviewed answers
-  from the organisation's attestq server.
-- **Permission justifications:**
-  - `activeTab` + `scripting`: read and fill the form on the tab where the user
-    clicked the icon.
-  - `storage`: settings, and the in-progress review.
-  - No host permissions are requested.
-- **Privacy:** link [`PRIVACY.md`](PRIVACY.md) and declare that page content is
-  sent only to the server the user or their administrator configures.
-- **Visibility:** *Public*; *Unlisted* for link-only installs; or *Private*
-  (restricted to your Google Workspace domain or named testers).
+[`STORE_LISTING.md`](STORE_LISTING.md) has every dashboard field ready to paste:
+- the description;
+- the single purpose;
+- the permission justifications;
+- the data-usage answers;
+- the privacy policy URL;
+- the visibility options.
 
 To regenerate the icons after changing their colour or shape, run
 `python chrome-extension/tools/make_icons.py`.
@@ -199,5 +197,5 @@ ATTESTQ_E2E_SCREENSHOTS=shots pytest tests/test_extension_e2e.py   # also saves 
 | `popup.*` | The review UI: a view of the job plus the reviewer's edits. |
 | `options.*`, `managed_schema.json` | Settings, lockable by policy. |
 | `lib.js` | Settings resolution and the server client, shared by all of the above. |
-| `tools/` | Icon generator and Web Store packager. |
+| `tools/` | Icon generator, Web Store packager and listing-image generator; `harness.py` runs the demo stack for them and the e2e test. |
 | `demo/` | A sample portal page covering the common layouts. |

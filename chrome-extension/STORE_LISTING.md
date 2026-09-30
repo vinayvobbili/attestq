@@ -64,6 +64,8 @@ description come from `manifest.json`.
 - **Screenshots:** `dist/store/screenshot-1-review.png`,
   `screenshot-2-filled.png`, `screenshot-3-settings.png` (1280×800)
 - **Small promo tile:** `dist/store/promo-small.png` (440×280)
+- **Marquee promo tile** (optional; shown only if the store features the item):
+  `dist/store/promo-marquee.png` (1400×560)
 - **Homepage URL:** https://github.com/vinayvobbili/attestq
 - **Support URL:** https://github.com/vinayvobbili/attestq/issues
 - **Mature content:** No

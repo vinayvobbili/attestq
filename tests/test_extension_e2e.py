@@ -129,8 +129,11 @@ def test_store_assets_have_the_sizes_the_web_store_requires(tmp_path, pw):
         pytest.skip(str(exc))
     assert set(written) == {
         "screenshot-1-review.png", "screenshot-2-filled.png", "screenshot-3-settings.png",
-        "promo-small.png", "icon128.png",
+        "promo-small.png", "promo-marquee.png", "icon128.png",
     }
     for name, path in written.items():
-        expected = {"promo-small.png": store_assets.PROMO, "icon128.png": (128, 128)}.get(name, store_assets.SCREEN)
+        expected = {
+            "promo-small.png": store_assets.PROMO, "promo-marquee.png": store_assets.MARQUEE,
+            "icon128.png": (128, 128),
+        }.get(name, store_assets.SCREEN)
         assert _png_size(path) == expected, name

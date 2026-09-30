@@ -10,6 +10,7 @@ sees and composes the images the store asks for:
     screenshot-2-filled.png    1280x800   the form after filling
     screenshot-3-settings.png  1280x800   the settings page
     promo-small.png            440x280    small promo tile
+    promo-marquee.png          1400x560   marquee promo tile (used if the store features it)
     icon128.png                128x128    store icon
 
 Needs ``attestq[server]`` and Playwright with Chromium.
@@ -30,6 +31,7 @@ import harness
 REPO_DIR = harness.EXTENSION_DIR.parent
 SCREEN = (1280, 800)
 PROMO = (440, 280)
+MARQUEE = (1400, 560)
 CAPTION_H = 96
 PANEL_W = 460  # popup.css body width
 EXAMPLE_SERVER = "https://attestq.example.internal"
@@ -98,6 +100,26 @@ PROMO_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
 </style></head><body>
   <div class="brand"><img src="{icon}"><h1>attestq</h1></div>
   <p>Answer security questionnaires in web forms from your own evidence, with every answer reviewed.</p>
+</body></html>"""
+
+MARQUEE_HTML = """<!doctype html><html><head><meta charset="utf-8"><style>
+  html, body {{ margin: 0; width: {w}px; height: {h}px; overflow: hidden; }}
+  body {{ background: linear-gradient(135deg, #0969da, #0550ae); color: #fff;
+          font: 15px/1.35 system-ui, sans-serif; display: flex; gap: 72px;
+          padding: 0 88px; box-sizing: border-box; }}
+  .copy {{ flex: 1; display: flex; flex-direction: column; justify-content: center; }}
+  .brand {{ display: flex; align-items: center; gap: 22px; }}
+  .brand img {{ width: 96px; height: 96px; border-radius: 20px; box-shadow: 0 0 0 3px rgb(255 255 255 / 0.5); }}
+  h1 {{ margin: 0; font-size: 60px; font-weight: 700; }}
+  p {{ margin: 30px 0 0; font-size: 28px; line-height: 1.3; max-width: 640px; }}
+  .shot {{ margin-top: 64px; width: {panel}px; border-radius: 12px 12px 0 0;
+           box-shadow: 0 12px 40px rgb(0 0 0 / 0.35); align-self: flex-start; }}
+</style></head><body>
+  <div class="copy">
+    <div class="brand"><img src="{icon}"><h1>attestq</h1></div>
+    <p>Answer security questionnaires in web forms from your own evidence, with every answer reviewed.</p>
+  </div>
+  <img class="shot" src="{shot}">
 </body></html>"""
 
 
@@ -192,6 +214,9 @@ def _capture(pw, out_dir: Path, headless: bool) -> list:
         icon = harness.EXTENSION_DIR / "icons" / "icon128.png"
         written.append(_render(ctx, PROMO_HTML.format(w=PROMO[0], h=PROMO[1], icon=_data_uri(icon)),
                                PROMO, out_dir / "promo-small.png"))
+        written.append(_render(ctx, MARQUEE_HTML.format(w=MARQUEE[0], h=MARQUEE[1], panel=PANEL_W,
+                                                        icon=_data_uri(icon), shot=_data_uri(review)),
+                               MARQUEE, out_dir / "promo-marquee.png"))
         written.append(Path(shutil.copy(icon, out_dir / "icon128.png")))
     return written
 

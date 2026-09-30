@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Vendor Security Assessment (demo)</title>
+    <style>
+      :root {
+        --bg: #f4f6f8;
+        --card: #ffffff;
+        --border: #d8dee4;
+        --text: #1f2328;
+        --muted: #59636e;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #0d1117;
+          --card: #161b22;
+          --border: #30363d;
+          --text: #e6edf3;
+          --muted: #9198a1;
+        }
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 14px/1.5 system-ui, sans-serif;
+      }
+      main {
+        max-width: 860px;
+        margin: 0 auto;
+        padding: 24px 16px 64px;
+      }
+      h1 {
+        font-size: 22px;
+        margin-bottom: 4px;
+      }
+      .sub {
+        color: var(--muted);
+        margin-top: 0;
+      }
+      section {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 8px;
+        padding: 16px 20px;
+        margin-top: 16px;
+      }
+      h2 {
+        font-size: 16px;
+        margin-top: 0;
+      }
+      .q {
+        padding: 12px 0;
+        border-top: 1px solid var(--border);
+      }
+      .q:first-of-type {
+        border-top: 0;
+      }
+      .q-text {
+        font-weight: 600;
+        margin-bottom: 6px;
+      }
+      .opts label {
+        margin-right: 16px;
+      }
+      textarea,
+      input[type='text'],
+      input[type='email'],
+      input[type='date'],
+      select {
+        font: inherit;
+        color: inherit;
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 8px;
+      }
+      textarea {
+        width: 100%;
+        min-height: 60px;
+        box-sizing: border-box;
+        margin-top: 6px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: 180px 1fr;
+        gap: 8px 12px;
+        align-items: center;
+      }
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+      th,
+      td {
+        text-align: left;
+        vertical-align: top;
+        padding: 8px 6px;
+        border-top: 1px solid var(--border);
+      }
+      td textarea {
+        margin-top: 0;
+      }
+      .rte {
+        min-height: 60px;
+        border: 1px solid var(--border);
+        border-radius: 6px;
+        padding: 6px 8px;
+        margin-top: 6px;
+      }
+      #log {
+        color: var(--muted);
+        font-size: 12px;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Vendor Security Assessment</h1>
+      <p class="sub">
+        A demo portal page for trying the attestq extension. Run <code>attestq serve --demo --offline</code>,
+        serve this folder (<code>python -m http.server 8080 -d chrome-extension/demo</code>), open
+        <code>http://localhost:8080/vendor-review.html</code>, choose <em>helios</em> and click
+        <em>Scan &amp; Answer</em>.
+      </p>
+
+      <form id="assessment" onsubmit="return false">
+        <!-- Administrative fields: the extension should leave these alone. -->
+        <section>
+          <h2>Engagement details</h2>
+          <div class="grid">
+            <label for="vendor">Vendor name</label><input id="vendor" type="text" value="Helios Data Systems" />
+            <label for="assessor">Assessor email</label><input id="assessor" type="email" />
+            <label for="due">Due date</label><input id="due" type="date" />
+          </div>
+        </section>
+
+        <!-- Layout 1: question block with a radio group and a comments box. -->
+        <section>
+          <h2>1. Identity &amp; Access</h2>
+          <div class="q">
+            <div class="q-text">1.1 Is multi-factor authentication enforced for remote and privileged access?</div>
+            <div class="opts">
+              <label><input type="radio" name="q11" value="yes" /> Yes</label>
+              <label><input type="radio" name="q11" value="no" /> No</label>
+              <label><input type="radio" name="q11" value="na" /> N/A</label>
+            </div>
+            <label for="q11c">Comments</label>
+            <textarea id="q11c"></textarea>
+          </div>
+          <div class="q">
+            <div class="q-text">1.2 Are access rights granted on least privilege and reviewed periodically?</div>
+            <div class="opts">
+              <label><input type="radio" name="q12" value="yes" /> Yes</label>
+              <label><input type="radio" name="q12" value="no" /> No</label>
+              <label><input type="radio" name="q12" value="na" /> N/A</label>
+            </div>
+            <textarea aria-label="Explanation"></textarea>
+          </div>
+        </section>
+
+        <!-- Layout 2: fieldset + legend, select, ARIA-labelled comment. -->
+        <section>
+          <h2>2. Data Protection</h2>
+          <fieldset class="q">
+            <legend>2.1 Is customer data encrypted in transit and at rest using industry-standard algorithms?</legend>
+            <select name="q21">
+              <option value="">-- Select --</option>
+              <option>Met</option>
+              <option>Partially Met</option>
+              <option>Not Met</option>
+              <option>Not Applicable</option>
+            </select>
+            <span id="q21-note">Supporting details</span>
+            <textarea aria-labelledby="q21-note"></textarea>
+          </fieldset>
+        </section>
+
+        <!-- Layout 3: table rows, one question per row. -->
+        <section>
+          <h2>3. Operations</h2>
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Control</th>
+                <th>Response</th>
+                <th>Vendor comments</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>3.1</td>
+                <td>Does the vendor run regular vulnerability scanning with defined remediation SLAs?</td>
+                <td>
+                  <select name="q31">
+                    <option value="">Select…</option>
+                    <option>Yes</option>
+                    <option>No</option>
+                    <option>N/A</option>
+                  </select>
+                </td>
+                <td><textarea name="q31c"></textarea></td>
+              </tr>
+              <tr>
+                <td>3.2</td>
+                <td>Does the vendor maintain and test business continuity and disaster recovery plans?</td>
+                <td>
+                  <select name="q32">
+                    <option value="">Select…</option>
+                    <option>Yes</option>
+                    <option>No</option>
+                    <option>N/A</option>
+                  </select>
+                </td>
+                <td><textarea name="q32c"></textarea></td>
+              </tr>
+              <tr>
+                <td>3.3</td>
+                <td>Does the vendor centralize security event logs and define explicit log-retention periods?</td>
+                <td>
+                  <select name="q33">
+                    <option value="">Select…</option>
+                    <option>Yes</option>
+                    <option>No</option>
+                    <option>N/A</option>
+                  </select>
+                </td>
+                <td><textarea name="q33c"></textarea></td>
+              </tr>
+            </tbody>
+          </table>
+        </section>
+
+        <!-- Layout 4: free-text questions, one in a rich-text editor. -->
+        <section>
+          <h2>4. Incident Response</h2>
+          <div class="q">
+            <label class="q-text" for="q41"
+              >4.1 Describe the vendor's documented incident response and customer-notification process.</label
+            >
+            <textarea id="q41"></textarea>
+          </div>
+          <div class="q">
+            <div class="q-text" id="q42-label">
+              4.2 How does the vendor assess the security of its own subcontractors and fourth parties?
+            </div>
+            <div class="rte" contenteditable="true" role="textbox" aria-labelledby="q42-label"></div>
+          </div>
+        </section>
+      </form>
+
+      <section>
+        <h2>Change log</h2>
+        <p class="sub">Every input/change event the page receives, so you can see the form register each fill.</p>
+        <div id="log"></div>
+      </section>
+    </main>
+    <script>
+      const log = document.getElementById('log');
+      const form = document.getElementById('assessment');
+      const describe = (el) => el.name || el.id || el.getAttribute('aria-labelledby') || el.tagName;
+      for (const type of ['input', 'change']) {
+        form.addEventListener(type, (e) => {
+          const t = e.target;
+          const value = t.type === 'radio' ? t.value : (t.value ?? t.innerText).slice(0, 40);
+          log.textContent += `${type.padEnd(6)} ${describe(t)} = ${JSON.stringify(value)}\n`;
+        });
+      }
+    </script>
+  </body>
+</html>

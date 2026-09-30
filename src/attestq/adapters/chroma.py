@@ -86,6 +86,15 @@ class ChromaStore:
         res = self._collection.get(where={"_namespace": namespace}, include=[])
         return len(res.get("ids") or [])
 
+    def namespaces(self) -> List[str]:
+        """Every namespace holding at least one chunk, sorted.
+
+        Scans chunk metadata, so it is linear in the collection size — fine for
+        populating a picker, not for a hot path.
+        """
+        res = self._collection.get(include=["metadatas"])
+        return sorted({(m or {}).get("_namespace") for m in res.get("metadatas") or []} - {None})
+
     def clear(self, namespace: Optional[str] = None) -> None:
         if namespace is None:
             self._collection.delete(where={})

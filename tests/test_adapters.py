@@ -104,3 +104,16 @@ def test_chroma_store_roundtrip_via_engine():
     )
     assert ans.determination == "Met"
     assert ans.citations
+
+
+@pytest.mark.skipif(not _installed("chromadb"), reason="chromadb not installed")
+def test_chroma_store_lists_namespaces():
+    from attestq.adapters import ChromaStore
+
+    # Ephemeral clients share state in-process; a private collection keeps this isolated.
+    store = ChromaStore(collection="test_namespaces")
+    store.add(["b-0"], ["x"], [[1.0, 0.0]], [{}], namespace="beta")
+    store.add(["a-0", "a-1"], ["y", "z"], [[0.0, 1.0], [1.0, 1.0]], [{}, {}], namespace="alpha")
+    assert store.namespaces() == ["alpha", "beta"]
+    store.clear("beta")
+    assert store.namespaces() == ["alpha"]

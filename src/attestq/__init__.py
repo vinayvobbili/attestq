@@ -66,7 +66,7 @@ from .protocols import ChatFn, EmbedFn, Reranker, VectorStore
 from .quality import AnswerQualityReport, ClaimClassifier, assess, evidence_support
 from .store import InMemoryVectorStore, cosine_similarity
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "Engine",

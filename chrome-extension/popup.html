@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>attestq</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="header">
+      <div class="brand">
+        <strong>attestq</strong>
+        <span>Questionnaire assistant</span>
+      </div>
+      <button id="settings" class="icon-btn" type="button" title="Settings" aria-label="Settings">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path fill="currentColor" d="M19.4 13a7.6 7.6 0 0 0 0-2l2.1-1.6-2-3.5-2.5 1a7.4 7.4 0 0 0-1.7-1L15 3h-4l-.4 2.9a7.4 7.4 0 0 0-1.7 1l-2.5-1-2 3.5L6.6 11a7.6 7.6 0 0 0 0 2l-2.1 1.6 2 3.5 2.5-1a7.4 7.4 0 0 0 1.7 1L11 21h4l.4-2.9a7.4 7.4 0 0 0 1.7-1l2.5 1 2-3.5zM13 15.5A3.5 3.5 0 1 1 13 8.5a3.5 3.5 0 0 1 0 7z" />
+        </svg>
+      </button>
+    </header>
+
+    <section class="controls">
+      <label for="namespace">Answer from this vendor's evidence</label>
+      <div class="row">
+        <select id="namespace"></select>
+        <button id="scan" class="primary" type="button">Scan &amp; Answer</button>
+      </div>
+    </section>
+
+    <div id="status" class="status" role="status" hidden></div>
+    <div id="progress" class="progress" hidden><div class="bar"></div></div>
+    <div id="error" class="notice error" role="alert" hidden></div>
+
+    <section id="review" class="review" hidden>
+      <div class="review-head">
+        <label class="check"><input type="checkbox" id="toggle-all" /> Select all</label>
+        <span class="legend">Unticked answers need a look before you fill them.</span>
+      </div>
+      <ol id="items" class="items"></ol>
+    </section>
+
+    <footer id="footer" class="footer" hidden>
+      <button id="commit" class="primary wide" type="button">Fill selected answers</button>
+    </footer>
+
+    <script type="module" src="popup.js"></script>
+  </body>
+</html>

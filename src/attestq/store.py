@@ -77,6 +77,10 @@ class InMemoryVectorStore:
     def count(self, namespace: str = "default") -> int:
         return len(self._records.get(namespace, []))
 
+    def namespaces(self) -> List[str]:
+        """Every namespace holding at least one chunk, sorted."""
+        return sorted(ns for ns, records in self._records.items() if records)
+
     def clear(self, namespace: str | None = None) -> None:
         """Drop a namespace (or everything when namespace is None)."""
         if namespace is None:

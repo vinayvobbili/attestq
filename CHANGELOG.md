@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.5.0
+
+attestq now answers questionnaires where many of them actually live: web
+portals. An HTTP server puts the Engine behind a small JSON API, and a Chrome
+extension uses it to answer the questions on a web form. A reviewer checks every
+answer before it reaches the page, and what they ship flows back into the 0.4.0
+scorecard.
+
+- `attestq serve` (extra: `attestq[server]`)
+  - `GET /namespaces`: the vendor picker.
+  - `POST /answer`: answers up to 200 questions per call in parallel
+    (`--workers`). A failure on one question comes back as that answer's
+    `error` rather than failing the request.
+  - `POST /feedback` / `GET /scorecard`: record reviewer outcomes to JSONL and
+    report on them.
+  - Each answer carries `needs_review` and plain-language `review_notes` from
+    the verification layer when `--verify` is on.
+  - Browser access is limited to `chrome-extension://` origins, and
+    `--token`/`ATTESTQ_API_TOKEN` adds bearer auth.
+  - `--chroma` serves a persistent store; `-e`/`-n` ingest at startup, skipped
+    when the namespace already holds chunks.
+  - `--demo --offline` runs with no model at all.
+- `chrome-extension/`: Manifest V3, `activeTab` only, no host permissions.
+  - **Scanning:** finds radio groups, dropdowns, comment boxes and rich-text
+    editors across the common portal layouts, and pairs each choice with its
+    explanation box.
+  - **Answering:** runs in the service worker, so closing the popup loses
+    nothing.
+  - **Review:** pre-ticks only confident answers, never over an existing one;
+    shows sources and flags.
+  - **Filling:** fires the events frameworks listen for (React-safe setters,
+    real clicks, `insertText` for editors).
+  - **Setup:** settings can be locked by Chrome policy (`managed_schema.json`)
+    for zero-setup rollout.
+  - **Tools:** `tools/package.py` builds the Web Store zip and checks the
+    versions match; `tools/make_icons.py` regenerates the icons.
+- `InMemoryVectorStore.namespaces()` / `ChromaStore.namespaces()`, plus an
+  optional `NamespaceLister` protocol, so existing third-party stores stay valid.
+- Tests: the server API, the extension tools, and an end-to-end run that loads
+  the extension into Chromium and fills the bundled demo form (skipped without
+  Playwright).
+
 ## 0.4.0
 
 Added the feedback layer. 0.3.0 checked a draft against its evidence; this

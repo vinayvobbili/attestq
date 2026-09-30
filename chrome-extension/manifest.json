@@ -1,0 +1,33 @@
+{
+  "manifest_version": 3,
+  "name": "attestq — Questionnaire Assistant",
+  "short_name": "attestq",
+  "version": "0.5.0",
+  "description": "Answer security questionnaires in web forms from your vendors' evidence, review every answer, then fill the form.",
+  "minimum_chrome_version": "116",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "attestq: answer this questionnaire",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "options_page": "options.html",
+  "storage": {
+    "managed_schema": "managed_schema.json"
+  }
+}

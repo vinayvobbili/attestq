@@ -66,6 +66,8 @@ description come from `manifest.json`.
 - **Small promo tile:** `dist/store/promo-small.png` (440×280)
 - **Marquee promo tile** (optional; shown only if the store features the item):
   `dist/store/promo-marquee.png` (1400×560)
+- **Global promo video** (optional): upload `dist/store/attestq-demo.mp4`
+  (from `tools/demo_video.py`) to YouTube as Unlisted, then paste its URL.
 - **Homepage URL:** https://github.com/vinayvobbili/attestq
 - **Support URL:** https://github.com/vinayvobbili/attestq/issues
 - **Mature content:** No

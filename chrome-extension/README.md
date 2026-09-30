@@ -146,6 +146,18 @@ python chrome-extension/tools/store_assets.py   # -> dist/store/ screenshots, pr
 - **`store_assets.py`:** runs the real extension against the demo form and
   captures the listing images at the sizes the store requires.
 
+To record the narrated walkthrough, a 1280×800 MP4 for the listing's promo
+video and for the README, run:
+
+```bash
+pip install "slidecast[playwright]>=0.3"   # needs ffmpeg on PATH
+python chrome-extension/tools/demo_video.py                          # -> dist/store/attestq-demo.mp4
+python chrome-extension/tools/demo_video.py --voice "Ava (Premium)"  # any macOS voice; or gtts / silent
+```
+
+It drives the real popup through scan, review, a hand-written answer and fill,
+then narrates each step.
+
 [`STORE_LISTING.md`](STORE_LISTING.md) has every dashboard field ready to paste:
 - the description;
 - the single purpose;
@@ -197,5 +209,5 @@ ATTESTQ_E2E_SCREENSHOTS=shots pytest tests/test_extension_e2e.py   # also saves 
 | `popup.*` | The review UI: a view of the job plus the reviewer's edits. |
 | `options.*`, `managed_schema.json` | Settings, lockable by policy. |
 | `lib.js` | Settings resolution and the server client, shared by all of the above. |
-| `tools/` | Icon generator, Web Store packager and listing-image generator; `harness.py` runs the demo stack for them and the e2e test. |
+| `tools/` | Icon generator, Web Store packager, listing-image generator and demo-video recorder; `harness.py` runs the demo stack for them and the e2e test. |
 | `demo/` | A sample portal page covering the common layouts. |

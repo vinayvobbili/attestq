@@ -9,6 +9,9 @@ Repository tooling only; the Python package is unchanged.
   `chrome-extension/STORE_LISTING.md` holds every dashboard answer.
 - `chrome-extension/tools/harness.py`: the demo server, demo page and Chromium
   with the extension loaded, shared by the e2e test and the asset tool.
+- `chrome-extension/tools/demo_video.py` records a narrated walkthrough of
+  the extension as a 1280x800 MP4 (the store's promo video). It uses
+  slidecast >= 0.3 and ffmpeg.
 - CI lints `chrome-extension/tools` too.
 
 ## 0.5.0

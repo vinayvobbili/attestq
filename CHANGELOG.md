@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+Repository tooling only; the Python package is unchanged.
+
+- `chrome-extension/tools/store_assets.py` renders the Chrome Web Store
+  screenshots, promo tile and icon from the running extension.
+  `chrome-extension/STORE_LISTING.md` holds every dashboard answer.
+- `chrome-extension/tools/harness.py`: the demo server, demo page and Chromium
+  with the extension loaded, shared by the e2e test and the asset tool.
+- CI lints `chrome-extension/tools` too.
+
 ## 0.5.0
 
 attestq now answers questionnaires where many of them actually live: web
